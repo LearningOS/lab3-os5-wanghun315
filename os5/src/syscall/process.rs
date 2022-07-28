@@ -107,13 +107,21 @@ pub fn sys_waitpid(pid: isize, exit_code_ptr: *mut i32) -> isize {
 
 // YOUR JOB: 引入虚地址后重写 sys_get_time
 pub fn sys_get_time(_ts: *mut TimeVal, _tz: usize) -> isize {
-    let _us = get_time_us();
-    let t = translated_refmut(current_user_token(), _ts);
-    *t = TimeVal {
-        sec: _us / 1_000_000,
-        usec: _us % 1_000_000,
-    };
-    0
+    let virt_addr = VirtAddr(_ts as usize);
+    let token = current_user_token();
+    if let Some(phys_addr) = translate_v(token, virt_addr) {
+        let us = get_time_us();
+        let kernel_ts = phys_addr.0 as *mut TimeVal;
+        unsafe {
+            *kernel_ts = TimeVal {
+                sec: us / 1_000_000,
+                usec: us % 1_000_000,
+            };
+        }
+        0
+    } else {
+        -1
+    }
 }
 
 // YOUR JOB: 引入虚地址后重写 sys_task_info

@@ -55,7 +55,7 @@ impl Processor {
                 );
                 return -1;
             }
-            // port最低三位[x w r]，其他位必须为0
+
             if port > 7usize || port == 0 {
                 println!("invalid port: {:#b}", port);
                 return -1;

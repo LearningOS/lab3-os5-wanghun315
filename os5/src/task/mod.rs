@@ -17,23 +17,21 @@ mod switch;
 #[allow(clippy::module_inception)]
 mod task;
 
+use crate::config::BIG_STRIDE;
 use crate::loader::get_app_data_by_name;
+use crate::sbi::shutdown;
 use alloc::sync::Arc;
-use lazy_static::*;
-use manager::fetch_task;
-use switch::__switch;
-pub use task::{TaskControlBlock, TaskStatus};
-
 pub use context::TaskContext;
+use lazy_static::*;
 pub use manager::add_task;
+use manager::fetch_task;
 pub use pid::{pid_alloc, KernelStack, PidHandle};
 pub use processor::{
     current_task, current_trap_cx, current_user_token, get_current_info, record_syscall,
     run_tasks, schedule, set_priority, take_current_task, mmap, munmap,
 };
-
-use crate::config::BIG_STRIDE;
-use crate::sbi::shutdown;
+use switch::__switch;
+pub use task::{TaskControlBlock, TaskStatus};
 
 /// Make current task suspended and switch to the next task
 pub fn suspend_current_and_run_next() {
@@ -44,9 +42,10 @@ pub fn suspend_current_and_run_next() {
     let mut task_inner = task.inner_exclusive_access();
     let task_cx_ptr = &mut task_inner.task_cx as *mut TaskContext;
     // Change status to Ready
-    let new_pass = task_inner.pass + BIG_STRIDE / task_inner.priority;
-    task_inner.pass = new_pass;
     task_inner.task_status = TaskStatus::Ready;
+    let new_pass = task_inner.pass + BIG_STRIDE / task_inner.priority;
+    // println!("{}", task_inner.priority);
+    task_inner.pass = new_pass;
     drop(task_inner);
     // ---- release current PCB
 
@@ -60,7 +59,6 @@ pub fn suspend_current_and_run_next() {
 pub fn exit_current_and_run_next(exit_code: i32) {
     // take from Processor
     let task = take_current_task().unwrap();
-    // **** access current TCB exclusively
     if task.getpid() == 0 {
         shutdown();
     }
